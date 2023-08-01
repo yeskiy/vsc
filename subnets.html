@@ -94,7 +94,15 @@
             /* Create the bookmark hyperlink */
             var link = document.getElementById('saveLink');
             if (link) {
-                link.href = 'subnets.html?network=' + inet_ntoa(curNetwork) + '&mask=' + curMask + '&division=' + binToAscii(nodeToString(rootSubnet));
+                const newLink = new URL(window.location.href);
+                newLink.searchParams.set('network', inet_ntoa(curNetwork));
+                newLink.searchParams.set('mask', curMask);
+                newLink.searchParams.set('division', binToAscii(nodeToString(rootSubnet)));
+                if (args['selectedSubnets'].length) {
+                    newLink.searchParams.set('selectedSubnets', args['selectedSubnets'].join(','));
+                }
+                window.history.pushState({}, null, newLink.href);
+                link.href = newLink.href;
             }
         }
 
@@ -158,23 +166,12 @@
             } else {
                 var newRow = document.createElement('TR');
                 calcbody.appendChild(newRow);
-
-                /* subnet address */
-                if (visibleColumns.subnet) {
-                    const subnet = inet_ntoa(address) + '/' + mask;
-
-                    const newCell = document.createElement('TD');
-                    newCell.appendChild(document.createTextNode(subnet));
-                    newRow.appendChild(newCell);
-                }
-
                 var addressFirst = address;
                 var addressLast = subnet_last_address(address, mask);
                 var useableFirst = address + 1;
                 var useableLast = addressLast - 1;
                 var numHosts;
                 var addressRange;
-                var usaebleRange;
 
                 if (mask == 32) {
                     addressRange = inet_ntoa(addressFirst);
@@ -189,6 +186,29 @@
                         useableRange = inet_ntoa(useableFirst) + ' - ' + inet_ntoa(useableLast);
                         numHosts = (1 + useableLast - useableFirst);
                     }
+                }
+
+                /* subnet address */
+                if (visibleColumns.subnet) {
+                    const subnet = inet_ntoa(address) + '/' + mask;
+                    const newCell = document.createElement('TD');
+                    newCell.style.cursor = 'pointer';
+                    if (findSubnetInSelectedList(subnet)) {
+                        newCell.style.fontWeight = 'bold';
+                        newCell.style.color = 'white';
+                        newCell.style.backgroundColor = 'red';
+                    }
+                    // Add onCLick event to select the subnet
+                    newCell.onclick = () => {
+                        if (findSubnetInSelectedList(subnet)) {
+                            args['selectedSubnets'] = args['selectedSubnets'].filter((s) => s !== subnet);
+                        } else {
+                            args['selectedSubnets'].push(subnet);
+                        }
+                        recreateTables();
+                    };
+                    newCell.appendChild(document.createTextNode(subnet));
+                    newRow.appendChild(newCell);
                 }
 
                 /* netmask */
@@ -275,8 +295,9 @@
         }
 
         function findSubnetInSelectedList(subnet) {
-            if(args['selectedSubnets']){
-
+            if (args['selectedSubnets']) {
+                const possibleIndex = args['selectedSubnets'].indexOf(subnet);
+                if (possibleIndex !== -1) return true;
             }
             return false;
         }
@@ -433,8 +454,10 @@
                         unescape(field[1].replace(/\+/g, ' '));
                 }
             }
-            if(args['selectedSubnets']){
+            if (args['selectedSubnets']) {
                 args['selectedSubnets'] = args['selectedSubnets'].split(',');
+            } else {
+                args['selectedSubnets'] = [];
             }
             return args;
         }
