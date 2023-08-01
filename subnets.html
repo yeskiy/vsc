@@ -16,7 +16,7 @@
         var curNetwork = 0;
         var curMask = 0;
 
-        function updateNetwork() {
+        function updateNetwork(callTableUpdate = true) {
 
             // get highlightedParts from the URL
             // var highlightedParts = window.location.hash.substr(1).split('&');
@@ -46,30 +46,31 @@
             if (curMask == 0) {
                 curMask = newMask;
                 curNetwork = newNetwork;
-                startOver();
+                startOver(callTableUpdate);
             } else if (curMask != newMask && confirm('You are changing the base network from /' + curMask + ' to /' + newMask + '. This will reset any changes you have made. Proceed?')) {
                 curMask = newMask;
                 curNetwork = newNetwork;
 
-                startOver();
+                startOver(callTableUpdate);
             } else {
                 document.forms['calc'].elements['netbits'].value = curMask;
                 curNetwork = newNetwork;
 
-                recreateTables();
+                if (callTableUpdate)
+                    recreateTables();
             }
         }
 
-        function startOver() {
+        function startOver(callTableUpdate = true) {
             rootSubnet = [0, 0, null];
 
-            recreateTables();
+            if (callTableUpdate)
+                recreateTables();
         }
 
-        function recreateTables() {
+        function recreateTables(skipPushState = false) {
             // Update header visibility
             for (const name in visibleColumns) {
-                console.log(name)
                 document.getElementById(name + 'Header').style.display = visibleColumns[name] ? 'table-cell' : 'none';
             }
 
@@ -89,7 +90,6 @@
             createRow(calcbody, rootSubnet, curNetwork, curMask, [curMask, rootSubnet[1], rootSubnet], rootSubnet[0]);
 
             document.getElementById('joinHeader').colSpan = (rootSubnet[0] > 0 ? rootSubnet[0] : 1);
-//  document.getElementById('col_join').span = (rootSubnet[0] > 0 ? rootSubnet[0] : 1);
 
             /* Create the bookmark hyperlink */
             var link = document.getElementById('saveLink');
@@ -100,8 +100,11 @@
                 newLink.searchParams.set('division', binToAscii(nodeToString(rootSubnet)));
                 if (args['selectedSubnets'].length) {
                     newLink.searchParams.set('selectedSubnets', args['selectedSubnets'].join(','));
+                } else {
+                    newLink.searchParams.delete('selectedSubnets');
                 }
-                window.history.pushState({}, null, newLink.href);
+                if (!skipPushState)
+                    window.history.pushState({}, null, newLink.href);
                 link.href = newLink.href;
             }
         }
@@ -415,13 +418,13 @@
             if (args['network'] && args['mask'] && args['division']) {
                 document.forms['calc'].elements['network'].value = args['network'];
                 document.forms['calc'].elements['netbits'].value = args['mask'];
-                updateNetwork();
+                updateNetwork(false);
                 var division = asciiToBin(args['division']);
                 rootSubnet = [0, 0, null];
                 if (division != '0') {
                     loadNode(rootSubnet, division);
                 }
-                recreateTables();
+                recreateTables(true);
             } else {
                 updateNetwork();
             }
@@ -463,6 +466,8 @@
         }
 
         window.onload = calcOnLoad;
+        window.onpopstate = calcOnLoad;
+
 
         function toggleColumn(cb) {
             var colName = 'col_' + (cb.id.substr(3));
